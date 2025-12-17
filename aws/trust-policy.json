@@ -9,7 +9,7 @@
       "Action": "sts:AssumeRoleWithWebIdentity",
       "Condition": {
         "StringLike": {
-          "token.actions.githubusercontent.com:sub": "repo:OWNER/REPO:ref:refs/heads/BRANCH"
+          "token.actions.githubusercontent.com:sub": "repo:zeajuniordev/motivador:ref:refs/heads/main"
         },
         "StringEquals": {
           "token.actions.githubusercontent.com:aud": "sts.amazonaws.com"
