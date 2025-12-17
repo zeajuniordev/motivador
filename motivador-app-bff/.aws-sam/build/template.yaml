@@ -1,0 +1,46 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: "SAM app para registrar usuarios \xFAnicos en DynamoDB"
+Resources:
+  SuscripcionesTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: Suscripciones
+      AttributeDefinitions:
+      - AttributeName: correo
+        AttributeType: S
+      KeySchema:
+      - AttributeName: correo
+        KeyType: HASH
+      BillingMode: PAY_PER_REQUEST
+  RegistrarUsuarioFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: RegistrarUsuarioFunction
+      Handler: app.lambda_handler
+      Runtime: python3.12
+      Policies:
+      - DynamoDBCrudPolicy:
+          TableName: Suscripciones
+      Environment:
+        Variables:
+          TABLE_NAME: Suscripciones
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /registrar
+            Method: POST
+            RestApiId:
+              Ref: ApiGateway
+    Metadata:
+      SamResourceId: RegistrarUsuarioFunction
+  ApiGateway:
+    Type: AWS::Serverless::Api
+    Properties:
+      Name: RegistrarApi
+      StageName: Prod
+      Cors:
+        AllowMethods: '''POST,OPTIONS'''
+        AllowHeaders: '''Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'''
+        AllowOrigin: '''*'''

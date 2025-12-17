@@ -1,0 +1,20 @@
+{
+  "name": "motivador-monorepo",
+  "private": true,
+  "version": "0.0.0",
+  "workspaces": [
+    "motivador-app-front/*",
+    "motivador-app-bff",
+    "motivador-app-back/*"
+  ],
+  "scripts": {
+    "bootstrap": "pnpm install --recursive",
+    "dev:front": "pnpm --filter ./motivador-app-front/motivador dev",
+    "build:front": "pnpm --filter ./motivador-app-front/motivador build",
+    "test:back": "cd motivador-app-back/motivador-app/src && npm test",
+    "sam:build:back": "cd motivador-app-back/motivador-app && sam build",
+    "sam:deploy:back": "cd motivador-app-back/motivador-app && sam deploy --guided",
+    "sam:build:bff": "cd motivador-app-bff && sam build",
+    "sam:deploy:bff": "cd motivador-app-bff && sam deploy --guided"
+  }
+}

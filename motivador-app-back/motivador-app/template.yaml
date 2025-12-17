@@ -1,0 +1,81 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Servicio diario de mensajes motivacionales
+
+Globals:
+  Function:
+    Timeout: 15
+    Runtime: nodejs18.x
+    MemorySize: 128
+
+Resources:
+
+  ColaMensajes:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: ColaMensajesMotivacionales
+
+  GenerarMensajeFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/generar_mensaje/
+      Handler: app.handler
+      Environment:
+        Variables:
+          SQS_URL: !Ref ColaMensajes
+          OPENAI_API_KEY: 'arn:aws:secretsmanager:us-east-1:433123236984:secret:OpenAI-t2Ounu'
+      Events:
+        EventoDiario9am:
+          Type: Schedule
+          Properties:
+            Schedule: cron(0 14 * * ? *)  # 9am Colombia
+        
+        EventoDiario3pm:
+          Type: Schedule
+          Properties:
+            Schedule: cron(0 20 * * ? *)  # 3pm Colombia
+        
+        EventoDiario6pm:
+          Type: Schedule
+          Properties:
+            Schedule: cron(0 23 * * ? *)  # 6pm Colombia
+            
+      Policies:
+       - AmazonDynamoDBReadOnlyAccess
+       - AmazonSQSFullAccess
+       - SecretsManagerReadWrite
+
+  UsuariosTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: UsuariosMotivacionales
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: correo
+          AttributeType: S
+      KeySchema:
+        - AttributeName: correo
+          KeyType: HASH
+
+  EnviarMensajeFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/enviar_mensaje/
+      Handler: app.handler
+      Environment:
+        Variables:
+          SES_EMAIL: "zeaa96@gmail.com"
+          TELEFONO_DESTINO: "+521234567890"
+      Events:
+        ColaSQS:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt ColaMensajes.Arn
+      Policies:
+       - AmazonSNSFullAccess
+       - AmazonSESFullAccess
+
+Outputs:
+  ColaMensajesUrl:
+    Description: URL de la cola SQS
+    Value: !Ref ColaMensajes

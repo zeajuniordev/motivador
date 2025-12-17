@@ -1,0 +1,4 @@
+{
+  "httpMethod": "POST",
+  "body": "{\"nombre\": \"Prueba Local\", \"correo\": \"local@example.com\", \"frecuencia\": \"diario\"}"
+}

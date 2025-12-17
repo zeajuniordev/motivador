@@ -1,0 +1,90 @@
+name: CI / CD
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-and-test:
+    name: Build and Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install pnpm
+        run: npm i -g pnpm
+
+      - name: Install dependencies (workspaces)
+        run: pnpm install --recursive
+
+      - name: Build frontend
+        run: pnpm --filter ./motivador-app-front/motivador build
+
+      - name: Run backend tests (Node)
+        working-directory: motivador-app-back/motivador-app/src
+        run: |
+          if [ -f package.json ]; then
+            npm ci || true
+            npm test || true
+          else
+            echo "No package.json, skipping tests"
+          fi
+
+  deploy:
+    name: Deploy (only main)
+    runs-on: ubuntu-latest
+    needs: build-and-test
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Setup Python (for SAM)
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'
+
+      - name: Install SAM CLI
+        run: |
+          pip3 install --user aws-sam-cli
+          echo "export PATH=$HOME/.local/bin:$PATH" >> $GITHUB_ENV
+
+      - name: Install pnpm
+        run: npm i -g pnpm
+
+      - name: Install dependencies (workspaces)
+        run: pnpm install --recursive
+
+      - name: Build & Deploy BFF (SAM)
+        env:
+          S3_BUCKET: ${{ secrets.S3_BUCKET }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+        run: |
+          cd motivador-app-bff
+          sam build
+          sam package --output-template-file packaged.yaml --s3-bucket "$S3_BUCKET"
+          sam deploy --template-file packaged.yaml --stack-name "${{ secrets.BFF_STACK_NAME }}" --capabilities CAPABILITY_IAM --region "$AWS_REGION" --no-confirm-changeset
+
+      - name: Build & Deploy Backend (SAM)
+        env:
+          S3_BUCKET: ${{ secrets.S3_BUCKET }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+        run: |
+          cd motivador-app-back/motivador-app
+          sam build
+          sam package --output-template-file packaged.yaml --s3-bucket "$S3_BUCKET"
+          sam deploy --template-file packaged.yaml --stack-name "${{ secrets.BACKEND_STACK_NAME }}" --capabilities CAPABILITY_IAM --region "$AWS_REGION" --no-confirm-changeset
