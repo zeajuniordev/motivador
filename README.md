@@ -148,3 +148,52 @@ Si quieres, puedo:
 - añadir el workflow de CI en `.github/workflows/ci.yml`
 
 Di cuál de esas quieres que haga ahora y lo implemento.
+
+**Despliegue (CI / CD) - Resumen rápido**
+
+Este proyecto incluye un workflow de GitHub Actions (`.github/workflows/ci-cd.yml`) que compila el frontend, ejecuta tests y despliega los servicios serverless (BFF y backend) usando AWS SAM.
+
+Requisitos previos
+- Acceso a AWS con permisos para crear roles/policies/buckets y desplegar CloudFormation.
+- Un bucket S3 para artefactos de SAM (ej. `motivador-sam-artifacts-433123236984`).
+- Configurar GitHub Secrets (ver lista abajo).
+
+Secrets que debes añadir en el repositorio (GitHub → Settings → Secrets and variables → Actions):
+- **AWS_ROLE_TO_ASSUME**: ARN del rol IAM que GitHub Actions asumirá (OIDC role). Ej: `arn:aws:iam::433123236984:role/github-actions-deploy-role`.
+- **S3_BUCKET**: Nombre del bucket S3 para artefactos SAM.
+- **AWS_REGION**: Región AWS (ej. `us-east-1`).
+- **BFF_STACK_NAME**: Nombre del stack CloudFormation para el BFF (ej. `motivador-bff-prod`).
+- **BACKEND_STACK_NAME**: Nombre del stack CloudFormation para el backend (ej. `motivador-backend-prod`).
+
+Cómo se creó el rol y la policy (resumen)
+- En `aws/` hay plantillas y un script de ayuda:
+  - `aws/trust-policy.json` — trust policy para el rol OIDC (limitada a `zeajuniordev/motivador:main`).
+  - `aws/sam-deploy-policy.json` — policy ejemplo con permisos necesarios para empaquetar y desplegar.
+  - `aws/commands.sh` — script que automatiza la creación del provider OIDC (si falta), rol, policy y bucket S3.
+
+Pasos para configurar (resumen rápido, comandos listos)
+1) Revisar `aws/trust-policy.json` y `aws/sam-deploy-policy.json` y adaptar cualquier placeholder.
+2) Ejecutar (localmente, con AWS CLI configurado) el script que automatiza la creación:
+```bash
+chmod +x aws/commands.sh
+./aws/commands.sh
+```
+3) Añadir los secrets en GitHub (usando `gh` o la UI). Ejemplo con `gh`:
+```bash
+gh secret set AWS_ROLE_TO_ASSUME --body "arn:aws:iam::433123236984:role/github-actions-deploy-role"
+gh secret set S3_BUCKET --body "motivador-sam-artifacts-433123236984"
+gh secret set AWS_REGION --body "us-east-1"
+gh secret set BFF_STACK_NAME --body "motivador-bff-prod"
+gh secret set BACKEND_STACK_NAME --body "motivador-backend-prod"
+```
+4) Probar el workflow: push a `main` o ejecutar manualmente en Actions → `CI / CD` → Run workflow.
+
+Qué revisar si algo falla
+- `sam package` / `sam deploy` suelen fallar por permisos: revisa CloudFormation events para ver el recurso que falla y añade permisos a la policy si es necesario.
+- Errores `iam:PassRole`: asegura que la policy permita `iam:PassRole` para los roles que SAM crea o los roles que indiques.
+
+Notas de seguridad
+- El workflow usa GitHub OIDC para evitar almacenar claves de largo plazo en GitHub. El rol creado está limitado al repo `zeajuniordev/motivador` y la rama `main`.
+- Revisa y reduce la policy `aws/sam-deploy-policy.json` tras el primer deploy para limitar recursos y acciones.
+
+Si quieres, genero el PR con estos cambios ahora mismo y lo preparo listo para que lo revises y lo merges. Dime si quieres que cree la rama `docs/deploy-ci` y suba el cambio por ti (te daré los comandos para crear el PR localmente con `gh`).
